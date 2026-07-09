@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BattleLive → 탑덱.gg 덱리스트 변환기</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Roboto, Arial, sans-serif;
+      color: #172033;
+      background: #eef2ff;
+      background-image:
+        radial-gradient(circle at 10% 10%, rgba(99,102,241,.18), transparent 32rem),
+        radial-gradient(circle at 90% 20%, rgba(14,165,233,.16), transparent 28rem),
+        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    }
+    .wrap { width: min(960px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0; }
+    .hero { margin-bottom: 20px; }
+    .eyebrow { display:inline-block; padding: 6px 10px; border-radius: 999px; background: #e0e7ff; color:#4338ca; font-weight: 700; font-size: 13px; }
+    h1 { margin: 14px 0 10px; font-size: 36px; line-height: 1.15; letter-spacing: -0.04em; }
+    .desc { margin: 0; color:#526071; line-height: 1.7; font-size: 16px; }
+    code { padding: 2px 6px; border-radius: 7px; background: #e5e7eb; color:#111827; }
+    .panel { background: rgba(255,255,255,.92); border: 1px solid rgba(148,163,184,.55); border-radius: 24px; box-shadow: 0 22px 60px rgba(30,41,59,.14); overflow: hidden; }
+    .panel-inner { padding: 24px; }
+    .dropzone {
+      display: block;
+      width: 100%;
+      border: 2px dashed #a5b4fc;
+      border-radius: 20px;
+      padding: 34px 20px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+      user-select: none;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color:#4f46e5; background:#eef2ff; transform: translateY(-1px); }
+    .drop-title { display:block; font-size: 19px; font-weight: 800; color:#111827; margin-bottom: 8px; }
+    .drop-sub { color:#64748b; font-size: 14px; }
+    input[type="file"] { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+    .toolbar { display:flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 14px; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      color: #fff;
+      background: #4f46e5;
+      box-shadow: 0 8px 18px rgba(79,70,229,.2);
+    }
+    button.secondary { background:#334155; box-shadow:none; }
+    button.ghost { background:#e2e8f0; color:#1e293b; box-shadow:none; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .status { margin-left: auto; color:#4f46e5; font-weight: 700; font-size: 14px; min-height: 20px; }
+    textarea {
+      display:block;
+      width:100%;
+      min-height: 330px;
+      resize: vertical;
+      border: 1px solid #cbd5e1;
+      border-radius: 18px;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px;
+      font: 15px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      outline: none;
+    }
+    textarea:focus { border-color:#818cf8; box-shadow: 0 0 0 4px rgba(129,140,248,.22); }
+    .note { margin: 14px 0 0; color:#64748b; font-size: 13px; line-height:1.6; }
+    @media (max-width: 640px) {
+      .wrap { width: min(100% - 20px, 960px); padding: 20px 0; }
+      h1 { font-size: 27px; }
+      .panel-inner { padding: 16px; }
+      .toolbar { align-items: stretch; }
+      button { flex: 1 1 auto; }
+      .status { flex-basis: 100%; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <span class="eyebrow">BattleLive XLSX Converter</span>
+      <h1>BattleLive 덱리스트를 탑덱.gg 텍스트로 변환</h1>
+      <p class="desc">BattleLive에서 받은 <code>.xlsx</code> 파일을 업로드하면 <code>수량 카드번호</code> 형식으로 바꿉니다. 예: <code>1 BS11-116</code></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-inner">
+        <label id="dropzone" class="dropzone" for="fileInput">
+          <span class="drop-title">엑셀 파일을 드롭하거나 클릭해서 선택</span>
+          <span class="drop-sub">지원: .xlsx / .xls, BattleLive 기본 덱리스트 형식</span>
+        </label>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+
+        <div class="toolbar">
+          <button id="copyBtn" disabled>결과 복사</button>
+          <button id="downloadBtn" class="secondary" disabled>TXT 저장</button>
+          <button id="clearBtn" class="ghost">초기화</button>
+          <span id="status" class="status"></span>
+        </div>
+
+        <textarea id="output" spellcheck="false" placeholder="변환 결과가 여기에 표시됩니다."></textarea>
+        <p class="note">카드번호 앞의 <code>ckbtcg</code> 접두사는 자동으로 제거합니다. 첫 번째 줄이 <code>메인</code>처럼 섹션명이어도 건너뜁니다.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const output = document.getElementById('output');
+    const statusEl = document.getElementById('status');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    function setStatus(text) { statusEl.textContent = text || ''; }
+    function setResult(text) {
+      output.value = text;
+      copyBtn.disabled = !text;
+      downloadBtn.disabled = !text;
+    }
+    function normalizeCardNo(value) {
+      return String(value ?? '').trim().replace(/^ckbtcg/i, '').toUpperCase();
+    }
+    function normalizeQty(value) {
+      const n = Number(String(value ?? '').trim());
+      return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+    }
+    function looksLikeCardNo(value) {
+      return /^[A-Z]+\d{2}-\d{3}$/i.test(String(value || '').trim());
+    }
+    function findHeader(rows) {
+      for (let r = 0; r < rows.length; r++) {
+        const cells = rows[r].map(v => String(v ?? '').trim());
+        const cardCol = cells.findIndex(v => v === '카드번호' || /card\s*(no|number|id)/i.test(v));
+        const qtyCol = cells.findIndex(v => v === '수량' || /^(qty|quantity|count|amount)$/i.test(v));
+        if (cardCol >= 0 && qtyCol >= 0) return { row: r, cardCol, qtyCol };
+      }
+      return null;
+    }
+    function convertWorkbook(workbook) {
+      const lines = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
+        const header = findHeader(rows);
+        if (!header) continue;
+        for (let r = header.row + 1; r < rows.length; r++) {
+          const row = rows[r];
+          const qty = normalizeQty(row[header.qtyCol]);
+          const cardNo = normalizeCardNo(row[header.cardCol]);
+          if (qty && looksLikeCardNo(cardNo)) lines.push(`${qty} ${cardNo}`);
+        }
+      }
+      return lines.join('\n');
+    }
+    async function handleFile(file) {
+      if (!file) return;
+      if (!window.XLSX) {
+        setStatus('XLSX 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+        return;
+      }
+      try {
+        setStatus('읽는 중...');
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const text = convertWorkbook(workbook);
+        setResult(text);
+        setStatus(text ? `${text.split('\n').length}줄 변환 완료` : '변환할 카드 행을 찾지 못했습니다.');
+      } catch (error) {
+        console.error(error);
+        setResult('');
+        setStatus('파일을 읽는 중 오류가 발생했습니다.');
+      }
+    }
+    fileInput.addEventListener('change', event => handleFile(event.target.files[0]));
+    ['dragenter', 'dragover'].forEach(type => {
+      dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(type => {
+      dropzone.addEventListener(type, event => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+    dropzone.addEventListener('drop', event => handleFile(event.dataTransfer.files[0]));
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(output.value);
+        setStatus('복사 완료');
+      } catch {
+        output.select();
+        document.execCommand('copy');
+        setStatus('복사 완료');
+      }
+    });
+    downloadBtn.addEventListener('click', () => {
+      const blob = new Blob([output.value], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'topdeckgg-decklist.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+    clearBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      setResult('');
+      setStatus('');
+    });
+  </script>
+</body>
+</html>
