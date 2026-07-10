@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="ko">
 <head>
   <meta charset="utf-8">
@@ -108,7 +107,7 @@
         </div>
 
         <textarea id="output" spellcheck="false" placeholder="변환 결과가 여기에 표시됩니다."></textarea>
-        <p class="note">카드번호 앞의 <code>ckbtcg</code> 접두사는 자동으로 제거합니다. 첫 번째 줄이 <code>메인</code>처럼 섹션명이어도 건너뜁니다.</p>
+        <p class="note">카드번호 앞의 <code>ckbtcg</code> 접두사는 자동으로 제거합니다. <code>BS5-100</code>, <code>ST5-020</code>, <code>P-102</code> 같은 카드번호를 지원합니다.</p>
       </div>
     </section>
   </main>
@@ -130,14 +129,16 @@
       downloadBtn.disabled = !text;
     }
     function normalizeCardNo(value) {
-      return String(value ?? '').trim().replace(/^ckbtcg/i, '').toUpperCase();
+      const s = String(value ?? '').trim();
+      const m = s.match(/(?:ckbtcg)?((?:BS|ST)\d+-\d{3}|P-\d{3})(?:[A-Z]+)?/i);
+      return m ? m[1].toUpperCase() : s.replace(/^ckbtcg/i,'').toUpperCase();
     }
     function normalizeQty(value) {
       const n = Number(String(value ?? '').trim());
       return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
     }
     function looksLikeCardNo(value) {
-      return /^[A-Z]+\d{2}-\d{3}$/i.test(String(value || '').trim());
+      return /^[A-Z]+\d*-\d{3}$/i.test(String(value || '').trim());
     }
     function findHeader(rows) {
       for (let r = 0; r < rows.length; r++) {
